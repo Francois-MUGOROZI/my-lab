@@ -1,0 +1,74 @@
+name: my-lab
+
+services:
+  rabbitmq:
+    image: rabbitmq:4.0-management-alpine
+    container_name: my-lab-rabbitmq
+    restart: unless-stopped
+    env_file: ./messaging.env
+    ports:
+      - "8100:5672"   # AMQP
+      - "8101:15672"  # Management UI
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - my-lab
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  kafka:
+    image: apache/kafka:3.8.0
+    container_name: my-lab-kafka
+    restart: unless-stopped
+    env_file: ./messaging.env
+    ports:
+      - "8102:9094"   # External listener (host access)
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    networks:
+      - my-lab
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:v0.7.2
+    container_name: my-lab-kafka-ui
+    restart: unless-stopped
+    env_file: ./messaging.env
+    ports:
+      - "8103:8080"
+    networks:
+      - my-lab
+    depends_on:
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      # provectuslabs/kafka-ui is a Spring Boot app — /actuator/health is the health endpoint
+      test: ["CMD-SHELL", "wget -q --tries=1 --spider http://localhost:8080/actuator/health 2>/dev/null || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 45s
+
+volumes:
+  rabbitmq_data:
+    name: my-lab_rabbitmq_data
+  kafka_data:
+    name: my-lab_kafka_data
+
+networks:
+  my-lab:
+    external: true
+    name: my-lab

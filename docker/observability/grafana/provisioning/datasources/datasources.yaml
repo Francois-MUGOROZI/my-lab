@@ -1,0 +1,42 @@
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    uid: poka-prometheus
+    type: prometheus
+    url: http://prometheus:9090
+    isDefault: true
+    access: proxy
+    orgId: 1
+
+  - name: Loki
+    uid: poka-loki
+    type: loki
+    url: http://loki:3100
+    access: proxy
+    orgId: 1
+
+  - name: Tempo
+    uid: poka-tempo
+    type: tempo
+    url: http://tempo:3200
+    access: proxy
+    orgId: 1
+    jsonData:
+      tracesToLogsV2:
+        datasourceUid: poka-loki
+        spanStartTimeShift: '-5m'
+        spanEndTimeShift: '5m'
+        filterByTraceID: true
+        tags:
+          - key: service.name
+            value: service_name
+      tracesToMetrics:
+        datasourceUid: poka-prometheus
+        tags:
+          - key: service.name
+            value: service_name
+      serviceMap:
+        datasourceUid: poka-prometheus
+      nodeGraph:
+        enabled: true

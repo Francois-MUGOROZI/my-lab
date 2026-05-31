@@ -1,0 +1,144 @@
+name: my-lab
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    container_name: my-lab-postgres
+    restart: unless-stopped
+    env_file: ./databases.env
+    ports:
+      - "8001:5432"
+    volumes:
+      # PostgreSQL 18+ expects the mount at /var/lib/postgresql (not /data)
+      # It creates the data subdirectory itself
+      - postgres_data:/var/lib/postgresql
+    networks:
+      - my-lab
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  mysql:
+    image: mysql:9
+    container_name: my-lab-mysql
+    restart: unless-stopped
+    env_file: ./databases.env
+    ports:
+      - "8002:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - my-lab
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-CU16-ubuntu-22.04
+    platform: linux/amd64
+    container_name: my-lab-sqlserver
+    restart: unless-stopped
+    env_file: ./databases.env
+    ports:
+      - "8003:1433"
+    volumes:
+      - sqlserver_data:/var/opt/mssql
+    networks:
+      - my-lab
+    healthcheck:
+      test:
+        - "CMD-SHELL"
+        - "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P $$MSSQL_SA_PASSWORD -Q 'SELECT 1' -b -C"
+      interval: 30s
+      timeout: 15s
+      retries: 10
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 2g
+
+  mongodb:
+    image: mongodb/mongodb-community-server:8.0-ubuntu2204
+    container_name: my-lab-mongodb
+    restart: unless-stopped
+    env_file: ./databases.env
+    ports:
+      - "8004:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - my-lab
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --eval 'db.adminCommand(\"ping\")' --quiet || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  redis:
+    image: redis:7.4-alpine
+    container_name: my-lab-redis
+    restart: unless-stopped
+    env_file: ./databases.env
+    command: >
+      /bin/sh -c
+      "redis-server --requirepass $$REDIS_PASSWORD --save '60 1' --loglevel warning --maxmemory 256mb --maxmemory-policy allkeys-lru"
+    ports:
+      - "8005:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - my-lab
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a $$REDIS_PASSWORD PING | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  redis-insight:
+    image: redis/redisinsight:2.64
+    container_name: my-lab-redis-insight
+    restart: unless-stopped
+    ports:
+      - "8006:5540"
+    volumes:
+      - redis_insight_data:/data
+    networks:
+      - my-lab
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      # BusyBox wget resolves 'localhost' to ::1 but RedisInsight only binds IPv4
+      test: ["CMD-SHELL", "wget -q --tries=1 --spider http://127.0.0.1:5540/api/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+volumes:
+  postgres_data:
+    name: my-lab_postgres_data
+  mysql_data:
+    name: my-lab_mysql_data
+  sqlserver_data:
+    name: my-lab_sqlserver_data
+  mongodb_data:
+    name: my-lab_mongodb_data
+  redis_data:
+    name: my-lab_redis_data
+  redis_insight_data:
+    name: my-lab_redis_insight_data
+
+networks:
+  my-lab:
+    external: true
+    name: my-lab

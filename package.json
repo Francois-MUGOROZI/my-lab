@@ -1,0 +1,42 @@
+{
+  "name": "my-lab",
+  "version": "1.0.0",
+  "description": "Production-grade local engineering lab — databases, messaging, storage, observability",
+  "private": true,
+  "scripts": {
+    "up": "./lab.sh up",
+    "down": "./lab.sh down",
+    "restart": "./lab.sh restart",
+    "ps": "./lab.sh ps",
+    "pull": "./lab.sh pull",
+
+    "db:up": "./lab.sh up --stack databases",
+    "db:down": "./lab.sh down --stack databases",
+    "db:restart": "./lab.sh restart --stack databases",
+    "db:logs": "./lab.sh logs --stack databases",
+    "db:ps": "./lab.sh ps --stack databases",
+
+    "db:postgres": "./lab.sh up --stack databases --service postgres",
+    "db:mysql": "./lab.sh up --stack databases --service mysql",
+    "db:sqlserver": "./lab.sh up --stack databases --service sqlserver",
+    "db:mongodb": "./lab.sh up --stack databases --service mongodb",
+    "db:redis": "./lab.sh up --stack databases --service redis",
+
+    "msg:up": "./lab.sh up --stack messaging",
+    "msg:down": "./lab.sh down --stack messaging",
+    "msg:restart": "./lab.sh restart --stack messaging",
+    "msg:logs": "./lab.sh logs --stack messaging",
+    "msg:ps": "./lab.sh ps --stack messaging",
+
+    "storage:up": "./lab.sh up --stack storage",
+    "storage:down": "./lab.sh down --stack storage",
+    "storage:restart": "./lab.sh restart --stack storage",
+    "storage:logs": "./lab.sh logs --stack storage",
+
+    "obs:up": "./lab.sh up --stack observability",
+    "obs:down": "./lab.sh down --stack observability",
+    "obs:restart": "./lab.sh restart --stack observability",
+    "obs:logs": "./lab.sh logs --stack observability",
+    "obs:ps": "./lab.sh ps --stack observability"
+  }
+}

@@ -1,0 +1,31 @@
+name: my-lab
+
+services:
+  minio:
+    image: minio/minio:RELEASE.2024-12-18T13-15-44Z
+    container_name: my-lab-minio
+    restart: unless-stopped
+    env_file: ./storage.env
+    command: server /data --console-address ":9001"
+    ports:
+      - "8200:9000"   # S3 API — endpoint: http://localhost:8200
+      - "8201:9001"   # Web Console — http://localhost:8201
+    volumes:
+      - minio_data:/data
+    networks:
+      - my-lab
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9000/minio/health/live || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+volumes:
+  minio_data:
+    name: my-lab_minio_data
+
+networks:
+  my-lab:
+    external: true
+    name: my-lab

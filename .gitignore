@@ -1,0 +1,14 @@
+# Real env files — copy from *.env.example and fill in credentials
+docker/databases/databases.env
+docker/messaging/messaging.env
+docker/storage/storage.env
+docker/observability/observability.env
+
+# Tempo runtime trace data
+docker/observability/tempo-data/
+
+# macOS
+.DS_Store
+
+# Node
+node_modules/
