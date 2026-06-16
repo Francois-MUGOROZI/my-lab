@@ -7,14 +7,14 @@ services:
     restart: unless-stopped
     env_file: ./messaging.env
     ports:
-      - "8100:5672"   # AMQP
-      - "8101:15672"  # Management UI
+      - "8100:5672" # AMQP
+      - "8101:15672" # Management UI
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     networks:
       - my-lab
     healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      test: [ "CMD", "rabbitmq-diagnostics", "check_port_connectivity" ]
       interval: 15s
       timeout: 10s
       retries: 5
@@ -26,13 +26,18 @@ services:
     restart: unless-stopped
     env_file: ./messaging.env
     ports:
-      - "8102:9094"   # External listener (host access)
+      - "8102:9094" # External listener (host access)
     volumes:
       - kafka_data:/var/lib/kafka/data
     networks:
       - my-lab
     healthcheck:
-      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list || exit 1"]
+      test:
+        [
+          "CMD-SHELL",
+          "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092
+            --list || exit 1",
+        ]
       interval: 15s
       timeout: 10s
       retries: 5
@@ -56,17 +61,52 @@ services:
         condition: service_healthy
     healthcheck:
       # provectuslabs/kafka-ui is a Spring Boot app — /actuator/health is the health endpoint
-      test: ["CMD-SHELL", "wget -q --tries=1 --spider http://localhost:8080/actuator/health 2>/dev/null || exit 1"]
+      test:
+        [
+          "CMD-SHELL",
+          "wget -q --tries=1 --spider http://localhost:8080/actuator/health
+            2>/dev/null || exit 1",
+        ]
       interval: 15s
       timeout: 10s
       retries: 5
       start_period: 45s
+
+  mailpit:
+    image: axllent/mailpit:v1.27
+    container_name: mailpit
+    restart: unless-stopped
+    env_file:
+      - ./messaging.env
+    ports:
+      - "8104:1025" # SMTP — point your app here
+      - "8105:8025" # Web UI — open in browser
+    networks:
+      - my-lab
+    volumes:
+      - mailpit_data:/data # persists emails across restarts
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--quiet",
+          "--tries=1",
+          "--spider",
+          "http://localhost:8025/livez",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
 volumes:
   rabbitmq_data:
     name: my-lab_rabbitmq_data
   kafka_data:
     name: my-lab_kafka_data
+  mailpit_data:
+    name: my-lab_mailpit_data
 
 networks:
   my-lab:
