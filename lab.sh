@@ -8,7 +8,7 @@ DOCKER_DIR="$SCRIPT_DIR/docker"
 PROJECT_NAME="my-lab"
 NETWORK_NAME="my-lab"
 
-ALL_STACKS=(databases messaging storage observability)
+ALL_STACKS=(databases messaging storage observability ai)
 
 # ─── Colours ────────────────────────────────────────────────────────────────
 if [ -t 1 ]; then
@@ -37,7 +37,7 @@ ${BOLD}Commands:${RESET}
   pull      Pull latest images for a stack
 
 ${BOLD}Options:${RESET}
-  --stack <name>    Target stack: databases | messaging | storage | observability | all
+  --stack <name>    Target stack: databases | messaging | storage | observability | ai | all
   --service <name>  Target a specific service within a stack
 
 ${BOLD}Port Reference:${RESET}
@@ -57,6 +57,9 @@ ${BOLD}Port Reference:${RESET}
     8300  Loki             8301  Tempo
     8302  Prometheus       8303  Grafana
     8304  OTEL gRPC        8305  OTEL HTTP
+
+  AI
+    8400  AI gateway (LiteLLM, OpenAI-compatible /v1)
 
 ${BOLD}Examples:${RESET}
   ./lab.sh up                              # Start everything
@@ -125,7 +128,7 @@ cmd_down() {
   local stacks=()
   if [ "$stack" = "all" ]; then
     # Reverse order for clean shutdown (observability last to capture final metrics)
-    stacks=(storage messaging databases observability)
+    stacks=(ai storage messaging databases observability)
   else
     stacks=("$stack")
   fi

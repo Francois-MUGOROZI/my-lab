@@ -1,0 +1,93 @@
+# my-lab model aliases — the only model names application code calls.
+#
+# Tiers describe what a caller gets, not which model serves it:
+#   fast      cheap, high throughput: classification, tagging, extraction, short rewrites
+#   balanced  default for most generation work
+#   smart     harder tasks where quality is worth the cost (not frontier models)
+#   embed     embeddings for search and similarity
+#
+# Models are placed by capability, and a backup has about the same capability
+# as its primary. Scores are the Artificial Analysis Intelligence Index
+# (November 2026, https://artificialanalysis.ai/leaderboards/models); prices are
+# $ per 1M input / output tokens. Re-check both when repointing a tier.
+#
+# Each alias is one or more deployments sharing a `model_name`. Lower `order`
+# is tried first (with its retries), then the next; same-order deployments are
+# load-balanced. Backups come from another provider so one outage doesn't take
+# a tier down.
+#
+# Add a use-case alias (e.g. `translate-article`) only when a use case needs a
+# different model from its tier. Names: lowercase, no `/` (that is the
+# provider-wildcard form). Track which feature made a call with request
+# metadata, not with alias names.
+#
+# Only `model_list` may appear in this file (it is merged into config.yaml).
+
+model_list:
+  - model_name: fast
+    litellm_params:
+      model: anthropic/claude-haiku-5-5 # index 36.2, $0.10 / $0.50
+      litellm_credential_name: anthropic
+      order: 1
+  - model_name: fast
+    litellm_params:
+      model: openai/gpt-6-luna # index 27.8, $0.10 / $0.50
+      litellm_credential_name: openai
+      order: 2
+
+  - model_name: balanced
+    litellm_params:
+      model: openai/gpt-6.1-terra # index 51.0, $1 / $5
+      litellm_credential_name: openai
+      order: 1
+  - model_name: balanced
+    litellm_params:
+      model: gemini/gemini-4-argon # index 50.4, $2 / $10
+      litellm_credential_name: gemini
+      order: 2
+
+  - model_name: smart
+    litellm_params:
+      model: anthropic/claude-sonnet-5-5 # index 54.2, $2 / $10
+      litellm_credential_name: anthropic
+      order: 1
+  - model_name: smart
+    litellm_params:
+      model: openai/gpt-6.1-sol # index 54.5, $2 / $10
+      litellm_credential_name: openai
+      order: 2
+
+  # No backup on purpose: vectors from different embedding models are not
+  # comparable, so a silent failover would corrupt search. Changing this model
+  # means re-embedding everything already stored. Not yet evaluated on
+  # Kinyarwanda retrieval; do that before storing vectors.
+  - model_name: embed
+    litellm_params:
+      model: openai/text-embedding-3-small # $0.02, 1536 dims
+      litellm_credential_name: openai
+    model_info:
+      mode: embedding
+
+  # ---- Use-case aliases ----
+
+  # Translation, Kinyarwanda <-> English (direction is set in the prompt).
+  # Gemini led prompted LLMs on African-language MT, with the smallest gap
+  # between into- and out-of-African-language quality (AfroBench, ACL 2025).
+  # Flash keeps the cost to ~0.5 US cents per median article (Kinyarwanda is
+  # ~3.2 tokens/word vs ~1.1 for English, so en->rw output dominates).
+  # Reasoning is set low: translation doesn't need it, and reasoning tokens are
+  # billed as output. Quality on Kinyarwanda is not benchmarked for current
+  # models: confirm with our own rw<->en test set (candidates: Claude Haiku 5.5,
+  # GPT-6 Luna, Gemini 3.8 Flash, Gemini 4 Argon) before relying on it.
+  - model_name: translate
+    litellm_params:
+      model: gemini/gemini-3.8-flash # $0.75 / $3.75
+      litellm_credential_name: gemini
+      reasoning_effort: low
+      order: 1
+  - model_name: translate
+    litellm_params:
+      model: openai/gpt-6.1-terra # $1 / $5
+      litellm_credential_name: openai
+      reasoning_effort: low
+      order: 2

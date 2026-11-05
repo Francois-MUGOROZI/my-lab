@@ -1,7 +1,7 @@
 {
   "name": "my-lab",
   "version": "1.0.0",
-  "description": "Production-grade local engineering lab — databases, messaging, storage, observability",
+  "description": "Production-grade local engineering lab — databases, messaging, storage, observability, AI gateway",
   "private": true,
   "scripts": {
     "up": "./lab.sh up",
@@ -37,6 +37,12 @@
     "obs:down": "./lab.sh down --stack observability",
     "obs:restart": "./lab.sh restart --stack observability",
     "obs:logs": "./lab.sh logs --stack observability",
-    "obs:ps": "./lab.sh ps --stack observability"
+    "obs:ps": "./lab.sh ps --stack observability",
+
+    "ai:up": "./lab.sh up --stack ai",
+    "ai:down": "./lab.sh down --stack ai",
+    "ai:restart": "./lab.sh restart --stack ai",
+    "ai:logs": "./lab.sh logs --stack ai",
+    "ai:ps": "./lab.sh ps --stack ai"
   }
 }

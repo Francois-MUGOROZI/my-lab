@@ -1,6 +1,6 @@
 # my-lab
 
-A production-grade local engineering lab — all the infrastructure an engineer reaches for daily, in one place. Databases, message brokers, object storage, and a full observability stack, all running in Docker with consistent naming, health checks, and a single script to manage everything.
+A production-grade local engineering lab — all the infrastructure an engineer reaches for daily, in one place. Databases, message brokers, object storage, a full observability stack, and an AI gateway, all running in Docker with consistent naming, health checks, and a single script to manage everything.
 
 ---
 
@@ -12,6 +12,7 @@ A production-grade local engineering lab — all the infrastructure an engineer 
 | **Messaging** | RabbitMQ 4.0, Kafka 3.8 (KRaft), Kafka UI |
 | **Storage** | MinIO (S3-compatible) |
 | **Observability** | Grafana, Prometheus, Loki, Tempo, OpenTelemetry Collector |
+| **AI** | LiteLLM AI gateway (OpenAI-compatible, OpenAI / Anthropic / Gemini / Azure) |
 
 All stacks are independent — run any combination you need. The observability stack is completely optional.
 
@@ -32,6 +33,7 @@ cp docker/databases/databases.env.example     docker/databases/databases.env
 cp docker/messaging/messaging.env.example     docker/messaging/messaging.env
 cp docker/storage/storage.env.example         docker/storage/storage.env
 cp docker/observability/observability.env.example docker/observability/observability.env
+cp docker/ai/ai.env.example                   docker/ai/ai.env   # provider keys
 
 # 2. Start everything
 ./lab.sh up
@@ -86,6 +88,12 @@ All services are exposed in the `8000+` range, grouped by stack.
 | 8304 | OTEL Collector gRPC | OTLP gRPC endpoint |
 | 8305 | OTEL Collector HTTP | OTLP HTTP endpoint |
 
+### AI (8400)
+
+| Port | Service | Notes |
+|---|---|---|
+| 8400 | AI gateway (LiteLLM) | OpenAI-compatible → `http://localhost:8400/v1`; needs the databases stack (Redis) |
+
 ---
 
 ## Usage
@@ -114,7 +122,7 @@ All services are exposed in the `8000+` range, grouped by stack.
 ./lab.sh ps                                        # Show all containers
 ```
 
-**Available stacks:** `databases` · `messaging` · `storage` · `observability` · `all`
+**Available stacks:** `databases` · `messaging` · `storage` · `observability` · `ai` · `all`
 
 ### npm scripts
 
@@ -126,6 +134,7 @@ npm run db:postgres     # Start only postgres
 npm run msg:up          # Start messaging stack
 npm run storage:up      # Start storage stack
 npm run obs:up          # Start observability stack
+npm run ai:up           # Start AI gateway (needs databases stack for Redis)
 npm run ps              # Show status
 ```
 
@@ -147,6 +156,7 @@ All containers are on the `my-lab` Docker network. Apps running in Docker on the
 | MinIO S3 | `my-lab-minio:9000` | `localhost:8200` |
 | OTEL gRPC | `my-lab-otel-collector:4317` | `localhost:8304` |
 | OTEL HTTP | `my-lab-otel-collector:4318` | `localhost:8305` |
+| AI gateway | `http://my-lab-ai-gateway:4000/v1` | `http://localhost:8400/v1` |
 
 **To join the network from your app's compose file:**
 ```yaml
@@ -172,7 +182,8 @@ my-lab/
 │   ├── databases/          PostgreSQL, MySQL, SQL Server, MongoDB, Redis
 │   ├── messaging/          RabbitMQ, Kafka, Kafka UI
 │   ├── storage/            MinIO
-│   └── observability/      Grafana, Prometheus, Loki, Tempo, OTEL Collector
+│   ├── observability/      Grafana, Prometheus, Loki, Tempo, OTEL Collector
+│   └── ai/                 AI gateway (LiteLLM) — config in ai/gateway/
 ├── docs/
 │   └── observability-integration.md   Options for wiring services into observability
 ├── lab.sh                  Orchestration script
@@ -198,6 +209,7 @@ These are development-only defaults from the env files. Change them before using
 | RabbitMQ | `lab_user` | see `messaging.env` |
 | MinIO | `lab_admin` | see `storage.env` |
 | Grafana | `admin` | `admin` |
+| AI gateway | — | Bearer `LITELLM_MASTER_KEY` in `ai.env` |
 
 ---
 

@@ -1,0 +1,51 @@
+name: my-lab
+
+# AI stack — LiteLLM proxy (AI gateway), OpenAI-compatible on http://localhost:8400/v1
+# Config: gateway/config.yaml (policy) + gateway/aliases.yaml (model aliases).
+# Secrets: ai.env (copy from ai.env.example).
+# Uses the shared Redis from the databases stack (start it first) on its own
+# logical database (AI_GATEWAY_REDIS_DB, default 1) for cache + router state.
+# Runs as UID 102 with a read-only root filesystem.
+
+services:
+  ai-gateway:
+    image: ghcr.io/berriai/litellm-non_root:v1.105.0@sha256:763ad5871b2747fba2c4872b504ac43ca452a6fbf49fb2b0345a42abacf6f91a
+    container_name: my-lab-ai-gateway
+    restart: unless-stopped
+    command: ["--config", "/app/config.yaml", "--port", "4000"]
+    env_file: ./ai.env
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_DB: ${AI_GATEWAY_REDIS_DB:-1}
+      # Process settings (https://docs.litellm.ai/docs/proxy/prod)
+      LITELLM_MODE: PRODUCTION # don't load .env files inside the container
+      LITELLM_LOG: ${AI_GATEWAY_LOG_LEVEL:-INFO}
+      LITELLM_LOCAL_MODEL_COST_MAP: "True" # use the image's model map, no GitHub fetch at startup
+      DISABLE_ADMIN_UI: "True" # the UI needs a database
+    ports:
+      - "8400:4000" # OpenAI-compatible API
+    volumes:
+      - ./gateway/config.yaml:/app/config.yaml:ro
+      - ./gateway/aliases.yaml:/app/aliases.yaml:ro
+    user: "102:102"
+    read_only: true
+    tmpfs:
+      - /tmp
+    networks:
+      - my-lab
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://localhost:4000/health/readiness')"
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+networks:
+  my-lab:
+    external: true
+    name: my-lab

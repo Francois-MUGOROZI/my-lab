@@ -1,0 +1,133 @@
+# LiteLLM proxy (AI gateway) — my-lab config (adapted from Inyarwanda infra/ai-gateway).
+# Reference: https://docs.litellm.ai/docs/proxy/config_settings
+#
+# Providers: OpenAI, Gemini, Anthropic and Azure OpenAI.
+# Baseline only: aliases, retries, cooldowns, fallbacks and a Redis response
+# cache. No database, so no virtual keys, budgets or spend tracking yet.
+#
+# Two kinds of model names:
+#   - Provider wildcards below (`openai/*`, `gemini/*`, `anthropic/*`,
+#     `azure/*`): any model of a configured provider, including new releases,
+#     with no config change. For evaluation, scripts and prototyping.
+#   - Our own aliases in aliases.yaml (e.g. `translate-article`): what
+#     application code calls. Repointing an alias is a change to that file only.
+# This file is reusable gateway policy and rarely changes.
+#
+# Process-level settings (log level, docs, cost map) are environment variables
+# set by docker/ai/docker-compose.yml. Redis is the shared my-lab Redis
+# (databases stack) on its own logical database (AI_GATEWAY_REDIS_DB, default 1).
+
+# Provider credentials, defined once and referenced by every deployment.
+credential_list:
+  - credential_name: openai
+    credential_values:
+      api_key: os.environ/OPENAI_API_KEY
+    credential_info:
+      custom_llm_provider: openai
+  - credential_name: gemini
+    credential_values:
+      api_key: os.environ/GEMINI_API_KEY
+    credential_info:
+      custom_llm_provider: gemini
+  - credential_name: anthropic
+    credential_values:
+      api_key: os.environ/ANTHROPIC_API_KEY
+    credential_info:
+      custom_llm_provider: anthropic
+  - credential_name: azure
+    credential_values:
+      api_key: os.environ/AZURE_API_KEY
+      api_base: os.environ/AZURE_API_BASE
+      api_version: os.environ/AZURE_API_VERSION
+    credential_info:
+      custom_llm_provider: azure
+
+# Project aliases (model_list entries) are appended from this file. Includes are
+# a shallow merge: lists are extended, any other top-level key is replaced, so
+# aliases.yaml must only contain `model_list`.
+include:
+  - aliases.yaml
+
+# One wildcard per provider: `<provider>/<model>` is passed straight through.
+# Azure is addressed by deployment name (`azure/<deployment>`), so a model must
+# be deployed in the Azure resource before it can be called.
+model_list:
+  - model_name: openai/*
+    litellm_params:
+      model: openai/*
+      litellm_credential_name: openai
+  - model_name: gemini/*
+    litellm_params:
+      model: gemini/*
+      litellm_credential_name: gemini
+  - model_name: anthropic/*
+    litellm_params:
+      model: anthropic/*
+      litellm_credential_name: anthropic
+  - model_name: azure/*
+    litellm_params:
+      model: azure/*
+      litellm_credential_name: azure
+
+router_settings:
+  routing_strategy: simple-shuffle # recommended default; no extra Redis lookups
+  timeout: 120 # seconds per provider call
+  stream_timeout: 60 # seconds to the first streamed chunk
+  num_retries: 2
+  # Retry transient provider errors; never retry errors a retry can't fix.
+  retry_policy:
+    AuthenticationErrorRetries: 0
+    BadRequestErrorRetries: 0
+    NotFoundErrorRetries: 0
+    ContentPolicyViolationErrorRetries: 0
+    RateLimitErrorRetries: 3
+    TimeoutErrorRetries: 2
+    InternalServerErrorRetries: 2
+    ServiceUnavailableErrorRetries: 3
+    DefaultRetries: 2
+  # Cool a deployment down after repeated provider-side failures (per minute),
+  # but not because callers send bad or disallowed requests.
+  allowed_fails: 3
+  allowed_fails_policy:
+    BadRequestErrorAllowedFails: 1000
+    ContentPolicyViolationErrorAllowedFails: 1000
+  cooldown_time: 30 # seconds
+  # Cross-alias fallbacks. Prefer `order` inside an alias (see aliases.yaml);
+  # use this only to fall back from one alias to another.
+  fallbacks: []
+  context_window_fallbacks: []
+  # Shared router state (cooldowns, rate-limit counters) across replicas.
+  redis_host: os.environ/REDIS_HOST
+  redis_port: os.environ/REDIS_PORT
+  redis_password: os.environ/REDIS_PASSWORD
+  cache_kwargs:
+    db: os.environ/REDIS_DB
+
+litellm_settings:
+  # Drop request params a provider doesn't support instead of failing, so an
+  # alias can move between providers without app changes.
+  drop_params: true
+  request_timeout: 600 # seconds for a whole request, retries included
+  json_logs: true
+  set_verbose: false
+  # Keep prompts and completions out of any logging callback added later.
+  turn_off_message_logging: true
+  cache: true
+  cache_params:
+    type: redis
+    host: os.environ/REDIS_HOST
+    port: os.environ/REDIS_PORT
+    password: os.environ/REDIS_PASSWORD
+    db: os.environ/REDIS_DB
+    namespace: litellm
+    ttl: 3600 # seconds
+    supported_call_types: ["acompletion", "aresponses", "aembedding"]
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
+  # Not set: max_request_size_mb (Enterprise-only, ignored without a license).
+  # Clients connect directly (no reverse proxy in front of the gateway).
+  trusted_proxy_ranges: []
+  # Off: each check sends a real, billed request to every deployment. Pod
+  # probes use /health/liveliness and /health/readiness, which cost nothing.
+  background_health_checks: false

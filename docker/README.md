@@ -98,6 +98,34 @@ OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:8305   # HTTP
 
 ---
 
+### `ai/`
+
+| Service | Image | Host Port | Notes |
+|---|---|---|---|
+| AI gateway (LiteLLM proxy) | `ghcr.io/berriai/litellm-non_root:v1.105.0` (digest-pinned) | 8400 | OpenAI-compatible `/v1` |
+
+**Config:** `ai.env` (copy from `ai.env.example`) — gateway master key, provider keys (OpenAI, Gemini, Anthropic, Azure) and `REDIS_PASSWORD` (must match `databases.env`).
+
+**Notes:**
+- Requires the **databases** stack: it uses the shared Redis (`redis:6379`) on logical **DB 1** for the response cache (1 h TTL) and router state. Override with `AI_GATEWAY_REDIS_DB`.
+- Call it with `Authorization: Bearer <LITELLM_MASTER_KEY>`. Apps call the aliases `fast`, `balanced`, `smart`, `embed`, `translate`; `<provider>/<model>` wildcards (e.g. `anthropic/claude-haiku-5-5`) are for scripts and evaluation.
+- Health: `GET /health/liveliness`, `GET /health/readiness` (free, no provider calls). Background model health checks are off because each is a billed request.
+- No database, so no admin UI, virtual keys or spend tracking. Runs as UID 102 with a read-only root filesystem.
+
+```bash
+curl -s localhost:8400/v1/chat/completions \
+  -H "Authorization: Bearer $LITELLM_MASTER_KEY" -H "Content-Type: application/json" \
+  -d '{"model":"fast","messages":[{"role":"user","content":"ping"}]}'
+```
+
+**Config files:**
+| File | Purpose |
+|---|---|
+| `gateway/config.yaml` | Gateway policy: credentials, provider wildcards, retries, cooldowns, Redis cache |
+| `gateway/aliases.yaml` | Model aliases (the only file normal changes touch) |
+
+---
+
 ## Env files
 
 Each stack directory contains:

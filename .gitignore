@@ -3,6 +3,7 @@ docker/databases/databases.env
 docker/messaging/messaging.env
 docker/storage/storage.env
 docker/observability/observability.env
+docker/ai/ai.env
 
 # Tempo runtime trace data
 docker/observability/tempo-data/
